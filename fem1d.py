@@ -1,8 +1,10 @@
+from math import sin
+
 import numpy as np
 from matplotlib import pyplot as plt
 
 def f(x):
-    return 2*x
+    return np.sin(x) 
 
 def create_mesh(distance, nodes):
     return np.linspace(0, distance, nodes)
@@ -103,9 +105,10 @@ def create_matrix_vector_mesh(L, N, c):
 
 
 if __name__ == '__main__':  
-    x_plot, u_sol = solve_fem_1d_dn(10, 100, 1, 1, 0)
+    x_plot, u_sol = solve_fem_1d_dn(10, 10, 1, 1, 2)
 
-    print(f"last node value x: {x_plot[-1]} u: {u_sol[-1]}")
+    for i in range(10):
+        print(f"x: {x_plot[i]:.2f} u: {u_sol[i]:.4f}")
 
     plt.plot(x_plot, u_sol, label='u(x) FEM')
     plt.title("Solution for $-u'' + cu = f$")
