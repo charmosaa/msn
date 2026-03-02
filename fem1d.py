@@ -1,5 +1,3 @@
-from math import sin
-
 import numpy as np
 from matplotlib import pyplot as plt
 
