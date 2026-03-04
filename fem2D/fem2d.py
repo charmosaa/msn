@@ -1,3 +1,4 @@
+from utils import write_inp_file
 import meshio
 import numpy as np
 
@@ -97,8 +98,48 @@ def calculate_vector_and_matrix(mesh_file, f = f, c_val=1.0):
     return A_global, B_global, points
 
 
+def apply_dirichlet_bc(A, B, points, boundary_nodes, g):
+    for node in boundary_nodes:
+        A[node, :] = 0
+        A[node, node] = 1
+        B[node] = g(points[node][0], points[node][1])
+    return A, B
+
+
+def solve_fem_2d_dirichlet(mesh_file, g, c_val=1.0):
+    A, B, points = calculate_vector_and_matrix(mesh_file, c_val=c_val)
+    
+    boundary_nodes_dict = {
+        0: [],  # x=0
+        1: [],  # x=1
+        2: [],  # y=0
+        3: []   # y=1
+    }
+
+    for i, (x, y) in enumerate(points):
+        if np.isclose(x, 0):
+            boundary_nodes_dict[0].append(i)
+        elif np.isclose(x, 1):
+            boundary_nodes_dict[1].append(i)
+        elif np.isclose(y, 0):
+            boundary_nodes_dict[2].append(i)
+        elif np.isclose(y, 1):
+            boundary_nodes_dict[3].append(i)
+
+    for boundary, nodes in boundary_nodes_dict.items():
+        A, B = apply_dirichlet_bc(A, B, points, nodes, g[boundary])
+
+    u = np.linalg.solve(A, B)
+
+    return points, u
 
 if __name__ == '__main__':
-    A, B, points = calculate_vector_and_matrix("mesh.msh", c_val=1.0)
-    print(f"Dimensiones de la matriz global A: {A.shape}")
-    print(f"Dimensiones del vector global B: {B.shape}")
+    mesh_file = "mesh.msh"
+    points, u = solve_fem_2d_dirichlet(mesh_file, [lambda x, y: 0, lambda x, y: 1, lambda x, y: 0, lambda x, y: 1], c_val=1.0)
+    
+    # Get the triangles for the .inp file
+    mesh = meshio.read(mesh_file)
+    triangles = mesh.cells_dict["triangle"]
+    
+    # Save for ParaView
+    write_inp_file("result_2d.inp", points, triangles, u)
