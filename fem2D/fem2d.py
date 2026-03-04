@@ -70,15 +70,19 @@ def calculate_vector_and_matrix(mesh_file, f = f, c_val=1.0):
 
         # Vector B loop
         B_local = np.zeros(3) 
+
+        gauss_points = [(1/6, 1/6), (2/3, 1/6), (1/6, 2/3)]
+        w = 1/6
         
-        # Calculate the value of f at the centroid of the triangle
-        x_c = (x1 + x2 + x3) / 3.0
-        y_c = (y1 + y2 + y3) / 3.0
-        f_val = f(x_c, y_c)
+        for xi, eta in gauss_points:
+            x_real = x1 + xi*(x2 - x1) + eta*(x3 - x1)
+            y_real = y1 + xi*(y2 - y1) + eta*(y3 - y1)
 
-        for i in range(3):
-            B_local[i] = f_val * (area / 3.0)
-
+            f_val = f(x_real, y_real)
+            N = np.array([1 - xi - eta, xi, eta])  # shape functions at the Gauss point
+            
+            for i in range(3):
+                B_local[i] += f_val * N[i] * abs(det_B_K) * w
 
 
         # Final assembly into global A and B
@@ -92,6 +96,9 @@ def calculate_vector_and_matrix(mesh_file, f = f, c_val=1.0):
                 
     return A_global, B_global, points
 
+
+
 if __name__ == '__main__':
-    A, puntos = setup_fem_2d("mesh.msh", c_val=1.0)
+    A, B, points = calculate_vector_and_matrix("mesh.msh", c_val=1.0)
     print(f"Dimensiones de la matriz global A: {A.shape}")
+    print(f"Dimensiones del vector global B: {B.shape}")
