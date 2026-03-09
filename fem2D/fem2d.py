@@ -2,21 +2,23 @@ from utils import write_inp_file
 import meshio
 import numpy as np
 
+C_VAL = 1.0
+
+def f(x, y):
+    return x*y
+
 grad_N_ref = np.array([
     [-1.0, -1.0], 
     [ 1.0,  0.0], 
     [ 0.0,  1.0]
 ])
 
-def f(x, y):
-    return x + y
-
 def read_mesh(mesh_file):
     mesh = meshio.read(mesh_file)
     points = mesh.points[:, :2]                 # coordinates without Z because we are in 2D
     triangles = mesh.cells_dict["triangle"]
-    return points, triangles, len(points), len(triangles)
 
+    return points, triangles, len(points), len(triangles)
 
 def calculate_vector_and_matrix(mesh_file, f = f, c_val=1.0):
     points, triangles, num_nodes, num_triangles = read_mesh(mesh_file)
@@ -106,36 +108,31 @@ def apply_dirichlet_bc(A, B, points, boundary_nodes, g):
     return A, B
 
 
-def solve_fem_2d_dirichlet(mesh_file, g, c_val=1.0):
+def solve_fem_2d_dirichlet(mesh_file, g_lambdas, c_val=1.0):
     A, B, points = calculate_vector_and_matrix(mesh_file, c_val=c_val)
-    
-    boundary_nodes_dict = {
-        0: [],  # x=0
-        1: [],  # x=1
-        2: [],  # y=0
-        3: []   # y=1
-    }
+    mesh = meshio.read(mesh_file)
 
-    for i, (x, y) in enumerate(points):
-        if np.isclose(x, 0):
-            boundary_nodes_dict[0].append(i)
-        elif np.isclose(x, 1):
-            boundary_nodes_dict[1].append(i)
-        elif np.isclose(y, 0):
-            boundary_nodes_dict[2].append(i)
-        elif np.isclose(y, 1):
-            boundary_nodes_dict[3].append(i)
+    # 1:bottom, 2:right, 3:top, 4:left
+    tag_to_boundary_index = {1: 0, 2: 1, 3: 2, 4: 3}
 
-    for boundary, nodes in boundary_nodes_dict.items():
-        A, B = apply_dirichlet_bc(A, B, points, nodes, g[boundary])
+    for i, cell_block in enumerate(mesh.cells):
+        if cell_block.type == "line":
+            physical_tags = mesh.cell_data["gmsh:physical"][i]
+            
+            for j, tag in enumerate(physical_tags):
+                if tag in tag_to_boundary_index:
+                    boundary_idx = tag_to_boundary_index[tag]
+                    node_indices = cell_block.data[j]
+
+                    A, B = apply_dirichlet_bc(A, B, points, node_indices, g_lambdas[boundary_idx])
 
     u = np.linalg.solve(A, B)
 
     return points, u
 
 if __name__ == '__main__':
-    mesh_file = "mesh.msh"
-    points, u = solve_fem_2d_dirichlet(mesh_file, [lambda x, y: 0, lambda x, y: 1, lambda x, y: 0, lambda x, y: 1], c_val=1.0)
+    mesh_file = "squareMesh.msh"
+    points, u = solve_fem_2d_dirichlet(mesh_file, [lambda x, y: 1, lambda x, y: 0, lambda x, y: 1, lambda x, y: y], c_val=C_VAL)
     
     # Get the triangles for the .inp file
     mesh = meshio.read(mesh_file)
