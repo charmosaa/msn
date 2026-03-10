@@ -69,7 +69,6 @@ def calculate_vector_and_matrix(mesh_file, f = f, c_val=1.0):
                 # A = W + c*M
                 A_local[i, j] = W_ij + c_val * M_ij
 
-        
 
         # Vector B loop
         B_local = np.zeros(3) 
@@ -106,6 +105,31 @@ def apply_dirichlet_bc(A, B, points, boundary_nodes, g):
         A[node, node] = 1
         B[node] = g(points[node][0], points[node][1])
     return A, B
+
+
+def apply_naumann_bc(B, points, boundary_nodes, g_func):
+    gauss_points = [(1 - 1/np.sqrt(3))/2, (1 + 1/np.sqrt(3))/2] 
+    weight = 0.5
+
+    for node in boundary_nodes:
+        n1 = node[0]
+        n2 = node[1]
+        
+        x1, y1 = points[n1]
+        x2, y2 = points[n2]
+
+        L_s = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+        for gp in gauss_points:
+            x_real = x1 + gp * (x2 - x1)
+            y_real = y1 + gp * (y2 - y1)
+
+            g_val = g_func(x_real, y_real)
+
+            B[n1] += L_s * g_val * weight * (1 - gp)
+            B[n2] += L_s * g_val * weight * gp
+
+    return B
 
 
 def solve_fem_2d_dirichlet(mesh_file, g_lambdas, c_val=1.0):
