@@ -121,10 +121,10 @@ def apply_naumann_bc(B, points, boundary_nodes, g_func):
         L_s = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
         for gp in gauss_points:
-            x_real = x1 + gp * (x2 - x1)
-            y_real = y1 + gp * (y2 - y1)
+            rsx = x1 + gp * (x2 - x1)
+            rsy = y1 + gp * (y2 - y1)
 
-            g_val = g_func(x_real, y_real)
+            g_val = g_func(rsx, rsy)
 
             B[n1] += L_s * g_val * weight * (1 - gp)
             B[n2] += L_s * g_val * weight * gp
@@ -132,23 +132,30 @@ def apply_naumann_bc(B, points, boundary_nodes, g_func):
     return B
 
 
-def solve_fem_2d_dirichlet(mesh_file, g_lambdas, c_val=1.0):
+def solve_fem_2d(mesh_file, dirichlet_bcs, neumann_bcs, c_val=1.0):
     A, B, points = calculate_vector_and_matrix(mesh_file, c_val=c_val)
     mesh = meshio.read(mesh_file)
 
-    # 1:bottom, 2:right, 3:top, 4:left
-    tag_to_boundary_index = {1: 0, 2: 1, 3: 2, 4: 3}
-
+    # apply Neumann
     for i, cell_block in enumerate(mesh.cells):
         if cell_block.type == "line":
             physical_tags = mesh.cell_data["gmsh:physical"][i]
             
             for j, tag in enumerate(physical_tags):
-                if tag in tag_to_boundary_index:
-                    boundary_idx = tag_to_boundary_index[tag]
+                if tag in neumann_bcs:
                     node_indices = cell_block.data[j]
+                    B = apply_naumann_bc(B, points, [node_indices], neumann_bcs[tag])
 
-                    A, B = apply_dirichlet_bc(A, B, points, node_indices, g_lambdas[boundary_idx])
+
+    # apply Dirichlet
+    for i, cell_block in enumerate(mesh.cells):
+        if cell_block.type == "line":
+            physical_tags = mesh.cell_data["gmsh:physical"][i]
+            
+            for j, tag in enumerate(physical_tags):
+                if tag in dirichlet_bcs:
+                    node_indices = cell_block.data[j]
+                    A, B = apply_dirichlet_bc(A, B, points, node_indices, dirichlet_bcs[tag])
 
     u = np.linalg.solve(A, B)
 
@@ -156,11 +163,20 @@ def solve_fem_2d_dirichlet(mesh_file, g_lambdas, c_val=1.0):
 
 if __name__ == '__main__':
     mesh_file = "squareMesh.msh"
-    points, u = solve_fem_2d_dirichlet(mesh_file, [lambda x, y: 1, lambda x, y: 0, lambda x, y: 1, lambda x, y: y], c_val=C_VAL)
-    
-    # Get the triangles for the .inp file
+    # 1:bottom, 2:right, 3:top, 4:left
+    dirichlet_conditions = {
+        1: lambda x, y: 1.0,
+        3: lambda x, y: 1.0,
+        4: lambda x, y: y
+    }
+
+    neumann_conditions = {
+        2: lambda x, y: 5.0
+    }
+
+    points, u = solve_fem_2d(mesh_file, dirichlet_conditions, neumann_conditions, c_val=C_VAL)
+
     mesh = meshio.read(mesh_file)
     triangles = mesh.cells_dict["triangle"]
-    
-    # Save for ParaView
-    write_inp_file("result_2d.inp", points, triangles, u)
+
+    write_inp_file("result_2d_mixed.inp", points, triangles, u)
