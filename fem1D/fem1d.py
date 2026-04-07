@@ -21,7 +21,7 @@ def solve_fem_1d_dd(L, N, c, u0, uL):
     A[-1, :] = 0
     A[-1, -1] = 1
     B[-1] = uL
-    
+
     # solve the linear system
     u = np.linalg.solve(A, B)
     return x, u
@@ -55,7 +55,7 @@ def solve_fem_1d_dn(L, N, c, u0, uL_prime):
     A[0, :] = 0
     A[0, 0] = 1
     B[0] = u0
-    
+
     # solve the linear system
     u = np.linalg.solve(A, B)
     return x, u
@@ -91,10 +91,9 @@ def create_matrix_vector_mesh(L, N, c):
         A[i, i+1]   += m_off
         A[i+1, i]   += m_off
         A[i+1, i+1] += m_diag
-        
+
         for gp in gauss_points:
             xi = x[i] + gp * h                          # map to physical element   
-
             B[i]   += f(xi) * weight * h * (1 - gp)     # weight for node i
             B[i+1] += f(xi) * weight * h * gp           # weight for node i+1
 
